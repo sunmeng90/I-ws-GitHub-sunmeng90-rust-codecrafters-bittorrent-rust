@@ -59,6 +59,10 @@ fn decode_bencoded_value(encoded_value: &str) -> (serde_json::Value, &str) {
                     break;
                 }
                 let (key, remainder) = decode_bencoded_value(rest);
+                let key = match key {
+                    Value::String(s) => s,
+                    s => panic!("dict key must be string, not {:?}", s)
+                };
                 let (value, remainder) = decode_bencoded_value(remainder);
                 dict.insert(key.to_string().into(), value);
                 rest = remainder;
