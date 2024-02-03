@@ -1,21 +1,18 @@
-use std::collections::{BTreeMap, HashMap};
-use serde_json;
+use std::collections::{BTreeMap};
 use std::env;
-use std::iter::Map;
 
 // Available if you need it!
-use serde_bencode;
 use serde_json::Value;
 
 enum Bencode {
     String(String),
     Integer(i64),
     List(Vec<Bencode>),
-    Dict(BTreeMap<Vec<u8>, Bencode>),
+    Dict(BTreeMap<String, Bencode>),
 }
 
 #[allow(dead_code)]
-fn decode_bencoded_value(encoded_value: &str) -> (serde_json::Value, &str) {
+fn decode_bencoded_value(encoded_value: &str) -> (Value, &str) {
     match encoded_value.chars().next() {
         Some('0'..='9') => {
             if let Some((len, rest)) = encoded_value.split_once(':') {
@@ -64,7 +61,7 @@ fn decode_bencoded_value(encoded_value: &str) -> (serde_json::Value, &str) {
                     s => panic!("dict key must be string, not {:?}", s)
                 };
                 let (value, remainder) = decode_bencoded_value(remainder);
-                dict.insert(key.to_string().into(), value);
+                dict.insert(key.to_string(), value);
                 rest = remainder;
             }
             return (dict.into(), &rest[1..]);
