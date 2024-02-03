@@ -3,33 +3,41 @@ use std::string;
 use crate::bencode::Bencode;
 use crate::bencode::Bencode::String;
 
+
+fn split_once(content: &[u8], ch: u8) -> Option<(&[u8], &[u8])> {
+    match content.iter().position(|u| *u == ch) {
+        Some(p) => {
+            Some((&content[..p], &content[p+1..]))
+        }
+        _ => None
+    }
+}
+
 #[allow(dead_code)]
-pub fn decode(encoded_value: &str) -> (Bencode, &str) {
-    match encoded_value.chars().next() {
-        Some('0'..='9') => {
-            if let Some((len, rest)) = encoded_value.split_once(':') {
-                if let Ok(len) = len.parse::<usize>() {
-                    return (String(rest[..len].to_string()), &rest[len..]);
+pub fn decode(encoded_value: &[u8]) -> (Bencode, &[u8]) {
+    match encoded_value.iter().next() {
+        Some(b'0'..=b'9') => {
+            if let Some((len, rest)) = split_once(encoded_value, b':') {
+                if let Ok(len) = string::String::from_utf8_lossy(len).parse::<usize>() {
+                    let result = string::String::from_utf8_lossy(&rest[..len]).to_string();
+                    return (String(result), &rest[len..]);
                 }
             }
         }
-        Some('i') => {
-            if let Some((n, rest)) =
-                encoded_value
-                    .split_at(1)
-                    .1
-                    .split_once('e')
-                    .and_then(|(digits, rest)| {
-                        let n = digits.parse::<i64>().ok()?;
-                        Some((n, rest))
-                    }) {
+        Some(b'i') => {
+            let content = encoded_value.split_at(1).1;
+            if let Some((n, rest)) = split_once(content, b'e')
+                .and_then(|(digits, rest)| {
+                    let n = string::String::from_utf8_lossy(digits).parse::<i64>().ok()?;
+                    Some((n, rest))
+                }) {
                 return (Bencode::Integer(n), rest);
             }
         }
-        Some('l') => {
+        Some(b'l') => {
             let mut values = Vec::new();
             let mut rest = encoded_value.split_at(1).1;
-            while !rest.is_empty() && !rest.starts_with('e') {
+            while !rest.is_empty() && !rest.first().filter(|c| *c == &b'e').is_some() {
                 let (val, remainder) = decode(rest);
                 values.push(val);
                 rest = remainder;
@@ -37,12 +45,11 @@ pub fn decode(encoded_value: &str) -> (Bencode, &str) {
             return (Bencode::List(values), &rest[1..]);
         }
         // d3:cow3:moo4:spam4:eggse
-        Some('d') => {
+        Some(b'd') => {
             let mut dict: BTreeMap<string::String, Bencode> = BTreeMap::new();
-            let mut rest: &str = encoded_value.split_at(1).1;
-
+            let mut rest: &[u8] = encoded_value.split_at(1).1;
             loop {
-                if rest.starts_with('e') {
+                if rest.is_empty() || rest.first().filter(|c| *c == &b'e').is_some() {
                     break;
                 }
                 let (key, remainder) = decode(rest);
@@ -58,5 +65,5 @@ pub fn decode(encoded_value: &str) -> (Bencode, &str) {
         }
         _ => {}
     }
-    panic!("Unhandled encoded value: {}", encoded_value)
+    panic!("Unhandled encoded value: {}", string::String::from_utf8_lossy(encoded_value))
 }
