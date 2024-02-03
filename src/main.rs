@@ -1,10 +1,9 @@
-mod bencode;
-
 use std::{env, string};
-use std::collections::BTreeMap;
 
-use serde::Serialize;
 use crate::bencode::decode::decode;
+
+mod bencode;
+mod serde;
 
 // Available if you need it!
 
