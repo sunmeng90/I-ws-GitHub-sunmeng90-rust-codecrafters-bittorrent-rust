@@ -21,10 +21,13 @@ fn main() {
             let encoded_content = std::fs::read(&args[2]).unwrap();
             let decoded = decode(&encoded_content).0;
             let json_value = serde_json::Value::try_from(decoded).unwrap();
-            println!("{:?}", json_value.get("info").unwrap());
+            let announce = json_value.get("announce").unwrap();
+            let info = json_value.get("info").unwrap();
+            println!("Tracker URL: {:?}\nLength: {:?}", announce.as_str().unwrap(), info.get("length").unwrap().as_i64().unwrap());
         }
         _ => {
             println!("unknown command: {}", args[1])
         }
     }
 }
+
