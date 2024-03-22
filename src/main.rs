@@ -1,6 +1,12 @@
 use std::{env, string};
+use std::str::FromStr;
+
+use ::serde::Deserializer;
+use sha1::Digest;
+use sha1::digest::Update;
 
 use crate::bencode::decode::decode;
+use crate::bencode::Keys::{Multiple, Single};
 
 mod bencode;
 mod serde;
@@ -21,13 +27,23 @@ fn main() {
             let encoded_content = std::fs::read(&args[2]).unwrap();
             let decoded = decode(&encoded_content).0;
             let json_value = serde_json::Value::try_from(decoded).unwrap();
-            let announce = json_value.get("announce").unwrap();
-            let info = json_value.get("info").unwrap();
-            println!("Tracker URL: {:?}\nLength: {:?}", announce.as_str().unwrap(), info.get("length").unwrap().as_i64().unwrap());
+            let torrent: bencode::Torrent = serde_json::from_value(json_value).unwrap();
+            let encoded_info = serde_bencode::to_bytes(&(torrent.info)).unwrap();
+            let mut hasher = sha1::Sha1::new();
+            Digest::update(&mut hasher, encoded_info);
+            let hash = hasher.finalize();
+            println!("Tracker URL: {:?}", torrent.announce);
+            let len = match torrent.info.keys {
+                Single { length } => length,
+                Multiple { .. } => 0
+            };
+            println!("Length: {:?}", len);
+            println!("Info Hash: {:x}", hash)
         }
         _ => {
             println!("unknown command: {}", args[1])
         }
     }
 }
+
 
