@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::string;
 use crate::bencode::Bencode;
-use crate::bencode::Bencode::String;
+use crate::bencode::Bencode::{Byte};
 
 
 fn split_once(content: &[u8], ch: u8) -> Option<(&[u8], &[u8])> {
@@ -19,8 +19,8 @@ pub fn decode(encoded_value: &[u8]) -> (Bencode, &[u8]) {
         Some(b'0'..=b'9') => {
             if let Some((len, rest)) = split_once(encoded_value, b':') {
                 if let Ok(len) = string::String::from_utf8_lossy(len).parse::<usize>() {
-                    let result = string::String::from_utf8_lossy(&rest[..len]).to_string();
-                    return (String(result), &rest[len..]);
+                    let result = &rest[..len];
+                    return (Byte(result.to_vec()), &rest[len..]);
                 }
             }
         }
@@ -54,11 +54,11 @@ pub fn decode(encoded_value: &[u8]) -> (Bencode, &[u8]) {
                 }
                 let (key, remainder) = decode(rest);
                 let key = match key {
-                    String(s) => s,
+                    Byte(s) => s,
                     s => panic!("dict key must be string, not {:?}", s)
                 };
                 let (value, remainder) = decode(remainder);
-                dict.insert(key.to_string(), value);
+                dict.insert(String::from_utf8(key).unwrap(), value);
                 rest = remainder;
             }
             return (Bencode::Dict(dict), &rest[1..]);

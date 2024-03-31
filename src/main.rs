@@ -1,9 +1,6 @@
 use std::{env, string};
-use std::str::FromStr;
 
-use ::serde::Deserializer;
 use sha1::Digest;
-use sha1::digest::Update;
 
 use crate::bencode::decode::decode;
 use crate::bencode::Keys::{Multiple, Single};
@@ -28,7 +25,7 @@ fn main() {
             // let decoded = decode(&encoded_content).0;
             // let json_value = serde_json::Value::try_from(decoded).unwrap();
             // let torrent: bencode::Torrent = serde_json::from_value(json_value).unwrap();
-            let torrent   : bencode::Torrent= serde_bencode::from_bytes(&encoded_content).unwrap();
+            let torrent: bencode::Torrent = serde_bencode::from_bytes(&encoded_content).unwrap();
             let encoded_info = serde_bencode::to_bytes(&(torrent.info)).unwrap();
             let mut hasher = sha1::Sha1::new();
             Digest::update(&mut hasher, encoded_info.clone());
