@@ -1,10 +1,10 @@
 use std::{env, string};
 
+use itertools::Itertools;
 use sha1::Digest;
 
 use crate::bencode::decode::decode;
 use crate::bencode::Keys::{Multiple, Single};
-use itertools::Itertools;
 
 mod bencode;
 mod serde;
@@ -45,8 +45,7 @@ fn main() {
             //  6e2275e604a0766656736e81ff10b55204ad8d35
             //  f00d937a0213df1982bc8d097227ad9e909acc17
             torrent.info.pieces.0.iter().for_each(|x| {
-                let hash  =  String::from_iter(x.map(|a| {format!("{:x}", a)}));
-                println!("{:}", hash);
+                println!("{:}", hex::encode(x));
             });
         }
         _ => {
