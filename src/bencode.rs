@@ -2,8 +2,9 @@ use std::collections::BTreeMap;
 use std::string;
 
 use serde::{Deserialize, Serialize};
-use serde_bytes::ByteBuf;
 use serde_with::serde_as;
+
+use crate::bencode::hashes::Hashes;
 
 pub mod decode;
 
@@ -34,9 +35,26 @@ pub struct Info {
     pub name: String,
     #[serde(rename = "piece length")]
     pub piece_length: usize,
-    pub pieces: ByteBuf,
+    pub pieces: Hashes,
     #[serde(flatten)]
     pub keys: Keys,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+pub enum Keys {
+    Single {
+        length: usize,
+    },
+    Multiple {
+        files: Vec<FileInfo>
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct FileInfo {
+    length: usize,
+    path: Vec<String>,
 }
 
 pub mod bytes_or_string {
@@ -92,22 +110,55 @@ pub mod bytes_or_string {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(untagged)]
-pub enum Keys {
-    Single {
-        length: usize,
-    },
-    Multiple {
-        files: Vec<FileInfo>
-    },
+mod hashes {
+    use std::fmt::{Formatter, Write};
+
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use serde::de::{Error, SeqAccess, Visitor};
+
+    #[derive(Debug)]
+    pub struct Hashes(pub Vec<[u8; 20]>);
+
+    struct HashesVisitor;
+
+    impl<'de> Visitor<'de> for HashesVisitor {
+        type Value = Hashes;
+
+        fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+            formatter.write_str("a byte string whose length is a multiple of 20")
+        }
+
+        fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E> where E: Error {
+            if v.len() % 20 != 0 {
+                return Err(E::custom(format!("length is {}", v.len())));
+            }
+            let hashes = Hashes(v.chunks_exact(20)
+                .map(|chunks_20| chunks_20.try_into().expect("guaranteed to be length of 20"))
+                .collect());
+            Ok(hashes)
+        }
+
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error> where A: SeqAccess<'de> {
+            let mut v = Vec::with_capacity(seq.size_hint().unwrap());
+
+            while let Some(b) = seq.next_element()? {
+                v.push(b);
+            }
+
+            self.visit_bytes(&v)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for Hashes {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+            deserializer.deserialize_bytes(HashesVisitor)
+        }
+    }
+
+    impl Serialize for Hashes {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+            let concated_hashes = self.0.concat();
+            serializer.serialize_bytes(&concated_hashes)
+        }
+    }
 }
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FileInfo {
-    length: usize,
-    path: Vec<String>,
-}
-
-
-

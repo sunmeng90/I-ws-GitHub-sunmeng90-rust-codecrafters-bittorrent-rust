@@ -44,7 +44,7 @@ fn main() {
             //  e876f67a2a8886e8f36b136726c30fa29703022d
             //  6e2275e604a0766656736e81ff10b55204ad8d35
             //  f00d937a0213df1982bc8d097227ad9e909acc17
-            torrent.info.pieces.iter().chunks(20).into_iter().for_each(|x| {
+            torrent.info.pieces.0.iter().for_each(|x| {
                 let hash  =  String::from_iter(x.map(|a| {format!("{:x}", a)}));
                 println!("{:}", hash);
             });
