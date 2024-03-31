@@ -1,9 +1,5 @@
-
-
-
 use std::collections::BTreeMap;
 use std::string;
-
 
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
@@ -20,10 +16,13 @@ pub enum Bencode {
 }
 
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Torrent {
+    #[serde(deserialize_with = "bytes_or_string::deserialize")]
     pub announce: String,
     #[serde(rename = "created by")]
+    #[serde(deserialize_with = "bytes_or_string::deserialize")]
     pub created_by: String,
     pub info: Info,
 }
@@ -41,10 +40,11 @@ pub struct Info {
 }
 
 pub mod bytes_or_string {
-    use std::fmt;
+    use std::{cmp, fmt};
+
     use serde::de::{SeqAccess, Visitor};
     use serde::Deserializer;
-    
+
     /// Deserialize a String from either bytes or string
     pub fn deserialize<'de, D>(deserializer: D) -> Result<String, D::Error>
         where
@@ -78,15 +78,16 @@ pub mod bytes_or_string {
             Ok(String::from_utf8(v).unwrap())
         }
 
-        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-            where
-                A: SeqAccess<'de>,
-        {
-            let mut res = Vec::with_capacity(seq.size_hint().unwrap_or(0));
-            while let Some(value) = seq.next_element()? {
-                res.push(value);
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error> where A: SeqAccess<'de> {
+            // decoded json array(Vec<u8>) to string
+            let len = cmp::min(seq.size_hint().unwrap_or(0), 4096);
+            let mut bytes = Vec::with_capacity(len);
+
+            while let Some(b) = seq.next_element()? {
+                bytes.push(b);
             }
-            Ok(String::from_utf8(res).unwrap())
+
+            Ok(String::from_utf8(bytes).unwrap())
         }
     }
 }

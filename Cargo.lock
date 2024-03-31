@@ -143,6 +143,7 @@ dependencies = [
  "bytes",
  "clap",
  "hex",
+ "log",
  "regex",
  "reqwest",
  "serde",

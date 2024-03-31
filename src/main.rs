@@ -22,10 +22,10 @@ fn main() {
         }
         "info" => {
             let encoded_content = std::fs::read(&args[2]).unwrap();
-            // let decoded = decode(&encoded_content).0;
-            // let json_value = serde_json::Value::try_from(decoded).unwrap();
-            // let torrent: bencode::Torrent = serde_json::from_value(json_value).unwrap();
-            let torrent: bencode::Torrent = serde_bencode::from_bytes(&encoded_content).unwrap();
+            let decoded = decode(&encoded_content).0;
+            let json_value = serde_json::Value::try_from(decoded).unwrap();
+            let torrent: bencode::Torrent = serde_json::from_value(json_value).unwrap();
+            // let torrent: bencode::Torrent = serde_bencode::from_bytes(&encoded_content).unwrap();
             let encoded_info = serde_bencode::to_bytes(&(torrent.info)).unwrap();
             let mut hasher = sha1::Sha1::new();
             Digest::update(&mut hasher, encoded_info.clone());
@@ -37,7 +37,7 @@ fn main() {
             };
             println!("Length: {:?}", len);
             println!("Info Hash: {:x}", hash);
-            println!("Encode: {:?}", encoded_info)
+            // println!("Encode: length: {:?}, {:?}", encoded_info.len(), encoded_info)
         }
         _ => {
             println!("unknown command: {}", args[1])
