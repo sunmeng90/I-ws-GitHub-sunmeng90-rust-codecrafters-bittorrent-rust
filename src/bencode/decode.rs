@@ -5,12 +5,7 @@ use crate::bencode::Bencode::{Byte};
 
 
 fn split_once(content: &[u8], ch: u8) -> Option<(&[u8], &[u8])> {
-    match content.iter().position(|u| *u == ch) {
-        Some(p) => {
-            Some((&content[..p], &content[p+1..]))
-        }
-        _ => None
-    }
+    content.iter().position(|u| *u == ch).map(|p| (&content[..p], &content[p+1..]))
 }
 
 #[allow(dead_code)]
@@ -37,7 +32,7 @@ pub fn decode(encoded_value: &[u8]) -> (Bencode, &[u8]) {
         Some(b'l') => {
             let mut values = Vec::new();
             let mut rest = encoded_value.split_at(1).1;
-            while !rest.is_empty() && !rest.first().filter(|c| *c == &b'e').is_some() {
+            while !rest.is_empty() && rest.first().filter(|c| *c == &b'e').is_none() {
                 let (val, remainder) = decode(rest);
                 values.push(val);
                 rest = remainder;

@@ -33,7 +33,7 @@ impl Bencode {
         let val_map: serde_json::Map<string::String, serde_json::Value> = dict.iter().map(|(k, v)| {
             let val = match v {
                 Bencode::Byte(s) => s.to_owned().into(),
-                Bencode::Integer(i) => serde_json::Value::from(i.clone()),
+                Bencode::Integer(i) => serde_json::Value::from(*i),
                 Bencode::List(l) => Bencode::convert_list(l),
                 Bencode::Dict(d) => Bencode::convert_dict(d),
             };

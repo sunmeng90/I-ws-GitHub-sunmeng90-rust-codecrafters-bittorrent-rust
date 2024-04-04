@@ -1,16 +1,11 @@
-use crate::bencode::decode::decode;
-use crate::bencode::Keys::{Multiple, Single};
-use form_urlencoded::byte_serialize;
-use http::StatusCode;
-use percent_encoding::{utf8_percent_encode, NON_ALPHANUMERIC};
-use std::fmt::format;
-use std::io::Read;
 use std::{env, string};
-use url::form_urlencoded;
+use std::io::Read;
+
+use sha1::Digest;
 
 use crate::bencode::{PeersResponse, Torrent};
-use sha1::digest::Output;
-use sha1::Digest;
+use crate::bencode::decode::decode;
+use crate::bencode::Keys::{Multiple, Single};
 
 mod bencode;
 mod serde;
@@ -36,7 +31,7 @@ fn main() {
             let hash = calc_info_hash(&torrent);
             println!("Tracker URL: {:?}", torrent.announce);
             println!("Length: {:?}", get_file_length(&torrent));
-            println!("Info Hash: {:?}", hex::encode(&hash));
+            println!("Info Hash: {:?}", hex::encode(hash));
             println!("Piece Length: {:?}", torrent.info.piece_length);
             println!("Piece Hashes:");
             //  e876f67a2a8886e8f36b136726c30fa29703022d
@@ -87,15 +82,15 @@ fn calc_info_hash(torrent: &Torrent) -> Vec<u8> {
 }
 
 fn get_file_length(torrent: &Torrent) -> usize {
-    let len = match torrent.info.keys {
+    
+    match torrent.info.keys {
         Single { length } => length,
         Multiple { .. } => 0,
-    };
-    len
+    }
 }
 
 fn url_encode(bytes: &[u8]) -> String {
-    let result = String::new();
+    let _result = String::new();
     bytes
         .iter()
         .map(|&b| match b {

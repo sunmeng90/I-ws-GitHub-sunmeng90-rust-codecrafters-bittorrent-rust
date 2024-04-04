@@ -190,7 +190,7 @@ pub struct PeersResponse {
 }
 
 mod peers {
-    use std::fmt::{Debug, Display, Formatter, Pointer};
+    use std::fmt::{Debug, Display, Formatter};
 
     use clap::builder::TypedValueParser;
     use serde::{Deserialize, Deserializer};
