@@ -1,19 +1,23 @@
+use anyhow::Context;
 use std::io::Read;
+use std::net::SocketAddrV4;
 use std::{env, string};
 
 use sha1::Digest;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::bencode::decode::decode;
-use crate::torrent::torrent::{PeersResponse, Torrent};
+use crate::torrent::handeshake::Handshake;
 use crate::torrent::torrent::Keys::{Multiple, Single};
-
+use crate::torrent::torrent::{PeersResponse, Torrent};
 mod bencode;
 mod torrent;
 
 // Available if you need it!
 
 // Usage: your_bittorrent.sh decode "<encoded_value>"
-fn main() {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let args: Vec<string::String> = env::args().collect();
     let command = &args[1];
     match command.as_str() {
@@ -76,20 +80,59 @@ fn main() {
             // 178.62.82.89:51448
 
             println!("handshake with {}", peer);
+            let encoded_content = std::fs::read(&args[2]).unwrap();
+            let torrent = serde_bencode::from_bytes::<Torrent>(&encoded_content).unwrap();
+            let hash = calc_info_hash(&torrent);
 
+            let peer = peer
+                .parse::<SocketAddrV4>()
+                .context("parse peer address")
+                .unwrap();
+            let mut peer = tokio::net::TcpStream::connect(peer)
+                .await
+                .context("connect to peer")
+                .unwrap();
+
+            let mut handshake = Handshake::new(hash.into(), *b"00112233445566778899");
+            {
+                // This line casts a mutable reference to handshake to a mutable pointer to an array of bytes of the same size as Handshake.
+                let handshake_bytes =
+                    &mut handshake as *mut Handshake as *mut [u8; std::mem::size_of::<Handshake>()];
+                // Safety: Handshake is a POD with repr(c)
+                // This block contains unsafe code that dereferences the pointer created in the
+                // previous line to obtain a mutable reference to an array of bytes.
+                let handshake_bytes: &mut [u8; std::mem::size_of::<Handshake>()] =
+                    unsafe { &mut *handshake_bytes };
+
+                peer.write_all(handshake_bytes)
+                    .await
+                    .context("write handshake")
+                    .unwrap();
+
+                peer.read_exact(handshake_bytes)
+                    .await
+                    .context("read handshake")
+                    .unwrap();
+            }
+            assert_eq!(handshake.length, 19);
+            assert_eq!(&handshake.protocol, b"Bittorrent protocol");
+            println!("Peer ID: {:?}", hex::decode(&handshake.peer_id).unwrap())
         }
         _ => {
-            println!("unknown command: {}", args[1])
+            println!("unknown command: {}", args[1]);
         }
-    }
+    };
+
+    Ok(())
 }
 
-fn calc_info_hash(torrent: &Torrent) -> Vec<u8> {
+fn calc_info_hash(torrent: &Torrent) -> [u8; 20] {
     let encoded_info = serde_bencode::to_bytes(&(torrent.info)).unwrap();
     let mut hasher = sha1::Sha1::new();
     Digest::update(&mut hasher, encoded_info.clone());
     let hash = hasher.finalize();
-    hash.as_slice().to_vec()
+    hash.try_into().unwrap()
+
 }
 
 fn get_file_length(torrent: &Torrent) -> usize {

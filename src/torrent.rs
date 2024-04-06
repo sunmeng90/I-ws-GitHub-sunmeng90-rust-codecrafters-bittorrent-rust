@@ -1,3 +1,3 @@
 pub mod torrent;
-mod handeshake;
+pub mod handeshake;
 mod serde;
