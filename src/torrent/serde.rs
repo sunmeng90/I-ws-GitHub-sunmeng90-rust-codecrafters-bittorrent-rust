@@ -55,7 +55,7 @@ pub mod bytes_or_string {
 }
 
 pub mod hashes {
-    use std::fmt::{Formatter, Write};
+    use std::fmt::{Formatter};
 
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use serde::de::{Error, SeqAccess, Visitor};
@@ -124,7 +124,6 @@ pub mod hashes {
 pub mod peers {
     use std::fmt::{Debug, Display, Formatter};
 
-    use clap::builder::TypedValueParser;
     use serde::{Deserialize, Deserializer};
     use serde::de::{Error, SeqAccess, Visitor};
 

@@ -1,5 +1,4 @@
 use anyhow::Context;
-use std::io::Read;
 use std::net::SocketAddrV4;
 use std::{env, string};
 
@@ -49,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
             let encoded_content = std::fs::read(&args[2]).unwrap();
             let torrent = serde_bencode::from_bytes::<Torrent>(&encoded_content).unwrap();
             let hash = calc_info_hash(&torrent);
-            let client = reqwest::blocking::Client::new();
+            let client = reqwest::Client::new();
             let url = format!(
                 "{}?info_hash={}",
                 torrent.announce,
@@ -64,16 +63,18 @@ async fn main() -> anyhow::Result<()> {
                 ("compact", "1".parse().unwrap()),
             ]);
             let req = builder.build();
-            let resp = client.execute(req.unwrap()).unwrap();
+            let resp = client.execute(req.unwrap())
+                .await
+                .unwrap();
+
             let peers_resp =
-                serde_bencode::from_bytes::<PeersResponse>(&resp.bytes().unwrap()).unwrap();
+                serde_bencode::from_bytes::<PeersResponse>(&resp.bytes().await.unwrap()).unwrap();
             peers_resp
                 .peers
                 .iter()
                 .for_each(|peer| println!("{}:{}", peer.0, peer.1));
         }
         "handshake" => {
-            let file = &args[2];
             let peer = &args[3];
             // 165.232.33.77:51467
             // 178.62.85.20:51489
@@ -96,8 +97,7 @@ async fn main() -> anyhow::Result<()> {
             let mut handshake = Handshake::new(hash.into(), *b"00112233445566778899");
             {
                 // This line casts a mutable reference to handshake to a mutable pointer to an array of bytes of the same size as Handshake.
-                let handshake_bytes =
-                    &mut handshake as *mut Handshake as *mut [u8; std::mem::size_of::<Handshake>()];
+                let handshake_bytes =  &mut handshake as *mut Handshake as *mut [u8; std::mem::size_of::<Handshake>()];
                 // Safety: Handshake is a POD with repr(c)
                 // This block contains unsafe code that dereferences the pointer created in the
                 // previous line to obtain a mutable reference to an array of bytes.
