@@ -8,7 +8,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::bencode::decode::decode;
 use crate::torrent::handeshake::Handshake;
 use crate::torrent::torrent::Keys::{Multiple, Single};
-use crate::torrent::torrent::{PeersResponse, Torrent};
+use crate::torrent::torrent::PeersResponse;
+use crate::torrent::torrent::Torrent;
 mod bencode;
 mod torrent;
 
@@ -63,12 +64,11 @@ async fn main() -> anyhow::Result<()> {
                 ("compact", "1".parse().unwrap()),
             ]);
             let req = builder.build();
-            let resp = client.execute(req.unwrap())
-                .await
-                .unwrap();
+            let resp = client.execute(req.unwrap()).await.unwrap();
 
-            let peers_resp =
-                serde_bencode::from_bytes::<PeersResponse>(&resp.bytes().await.unwrap()).unwrap();
+            let bytes = resp.bytes().await.unwrap();
+            println!("Resp: {:?}", String::from_utf8_lossy(&bytes));
+            let peers_resp = serde_bencode::from_bytes::<PeersResponse>(&bytes).unwrap();
             peers_resp
                 .peers
                 .iter()
@@ -80,7 +80,7 @@ async fn main() -> anyhow::Result<()> {
             // 178.62.85.20:51489
             // 178.62.82.89:51448
 
-            println!("handshake with {}", peer);
+            // println!("handshake with {}", peer);
             let encoded_content = std::fs::read(&args[2]).unwrap();
             let torrent = serde_bencode::from_bytes::<Torrent>(&encoded_content).unwrap();
             let hash = calc_info_hash(&torrent);
@@ -94,16 +94,15 @@ async fn main() -> anyhow::Result<()> {
                 .context("connect to peer")
                 .unwrap();
 
-            let mut handshake = Handshake::new(hash.into(), *b"00112233445566778899");
+            let mut handshake = Handshake::new(hash.into(), *b"00112233445566778123");
             {
                 const SIZE: usize = std::mem::size_of::<Handshake>();
                 // This line casts a mutable reference to handshake to a mutable pointer to an array of bytes of the same SIZE as Handshake.
-                let handshake_bytes =  &mut handshake as *mut Handshake as *mut [u8; SIZE];
+                let handshake_bytes = &mut handshake as *mut Handshake as *mut [u8; SIZE];
                 // Safety: Handshake is a POD with repr(c)
                 // This block contains unsafe code that dereferences the pointer created in the
                 // previous line to obtain a mutable reference to an array of bytes.
-                let handshake_bytes: &mut [u8; SIZE] =
-                    unsafe { &mut *handshake_bytes };
+                let handshake_bytes: &mut [u8; SIZE] = unsafe { &mut *handshake_bytes };
 
                 peer.write_all(handshake_bytes)
                     .await
@@ -116,8 +115,9 @@ async fn main() -> anyhow::Result<()> {
                     .unwrap();
             }
             assert_eq!(handshake.length, 19);
-            assert_eq!(&handshake.protocol, b"Bittorrent protocol");
-            println!("Peer ID: {:?}", hex::decode(&handshake.peer_id).unwrap())
+            assert_eq!(&handshake.bittorrent, b"BitTorrent protocol");
+            println!("Peer ID: {:}", hex::encode(&handshake.peer_id) );
+
         }
         _ => {
             println!("unknown command: {}", args[1]);
@@ -133,7 +133,6 @@ fn calc_info_hash(torrent: &Torrent) -> [u8; 20] {
     Digest::update(&mut hasher, encoded_info.clone());
     let hash = hasher.finalize();
     hash.try_into().unwrap()
-
 }
 
 fn get_file_length(torrent: &Torrent) -> usize {

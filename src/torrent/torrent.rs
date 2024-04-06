@@ -10,6 +10,7 @@ pub struct Torrent {
     #[serde(deserialize_with = "bytes_or_string::deserialize")]
     pub announce: String,
     #[serde(rename = "created by")]
+    #[serde(default)] // if no value, then use String::default
     #[serde(deserialize_with = "bytes_or_string::deserialize")]
     pub created_by: String,
     pub info: Info,
@@ -43,11 +44,12 @@ pub struct FileInfo {
 /// peers
 
 #[serde_as]
-#[derive(Deserialize, Debug)]
+#[derive( Deserialize, Debug)]
 pub struct PeersResponse {
     pub complete: usize,
     pub incomplete: usize,
     pub  interval: usize,
+    #[serde(default)]
     #[serde(rename = "min interval")]
     pub  min_interval: usize,
     #[serde(deserialize_with = "peers::deserialize_vec")]
