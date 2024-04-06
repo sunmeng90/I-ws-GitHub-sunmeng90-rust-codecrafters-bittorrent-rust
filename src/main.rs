@@ -96,12 +96,13 @@ async fn main() -> anyhow::Result<()> {
 
             let mut handshake = Handshake::new(hash.into(), *b"00112233445566778899");
             {
-                // This line casts a mutable reference to handshake to a mutable pointer to an array of bytes of the same size as Handshake.
-                let handshake_bytes =  &mut handshake as *mut Handshake as *mut [u8; std::mem::size_of::<Handshake>()];
+                const SIZE: usize = std::mem::size_of::<Handshake>();
+                // This line casts a mutable reference to handshake to a mutable pointer to an array of bytes of the same SIZE as Handshake.
+                let handshake_bytes =  &mut handshake as *mut Handshake as *mut [u8; SIZE];
                 // Safety: Handshake is a POD with repr(c)
                 // This block contains unsafe code that dereferences the pointer created in the
                 // previous line to obtain a mutable reference to an array of bytes.
-                let handshake_bytes: &mut [u8; std::mem::size_of::<Handshake>()] =
+                let handshake_bytes: &mut [u8; SIZE] =
                     unsafe { &mut *handshake_bytes };
 
                 peer.write_all(handshake_bytes)
