@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::string;
-use crate::bencode::Bencode;
-use crate::bencode::Bencode::{Byte};
+use crate::bencode::bencode::Bencode;
+use crate::bencode::bencode::Bencode::{Byte};
 
 
 fn split_once(content: &[u8], ch: u8) -> Option<(&[u8], &[u8])> {

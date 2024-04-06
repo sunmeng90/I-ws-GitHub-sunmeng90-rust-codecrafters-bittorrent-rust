@@ -1,14 +1,14 @@
-use std::{env, string};
 use std::io::Read;
+use std::{env, string};
 
 use sha1::Digest;
 
-use crate::bencode::{PeersResponse, Torrent};
 use crate::bencode::decode::decode;
-use crate::bencode::Keys::{Multiple, Single};
+use crate::torrent::torrent::{PeersResponse, Torrent};
+use crate::torrent::torrent::Keys::{Multiple, Single};
 
 mod bencode;
-mod serde;
+mod torrent;
 
 // Available if you need it!
 
@@ -27,7 +27,7 @@ fn main() {
             let encoded_content = std::fs::read(&args[2]).unwrap();
             let decoded = decode(&encoded_content).0;
             let json_value = serde_json::Value::try_from(decoded).unwrap();
-            let torrent: bencode::Torrent = serde_json::from_value(json_value).unwrap();
+            let torrent: Torrent = serde_json::from_value(json_value).unwrap();
             let hash = calc_info_hash(&torrent);
             println!("Tracker URL: {:?}", torrent.announce);
             println!("Length: {:?}", get_file_length(&torrent));
@@ -56,16 +56,27 @@ fn main() {
                 ("port", 6881.to_string()),
                 ("uploaded", "0".parse().unwrap()),
                 ("downloaded", "0".parse().unwrap()),
-                ("left",  get_file_length(&torrent).to_string()),
+                ("left", get_file_length(&torrent).to_string()),
                 ("compact", "1".parse().unwrap()),
             ]);
             let req = builder.build();
             let resp = client.execute(req.unwrap()).unwrap();
-            let peers_resp = serde_bencode::from_bytes::<PeersResponse>(&resp.bytes().unwrap()).unwrap();
-            peers_resp.peers.iter().for_each(|peer|{
-                println!("{}:{}", peer.0, peer.1)
-            });
-           
+            let peers_resp =
+                serde_bencode::from_bytes::<PeersResponse>(&resp.bytes().unwrap()).unwrap();
+            peers_resp
+                .peers
+                .iter()
+                .for_each(|peer| println!("{}:{}", peer.0, peer.1));
+        }
+        "handshake" => {
+            let file = &args[2];
+            let peer = &args[3];
+            // 165.232.33.77:51467
+            // 178.62.85.20:51489
+            // 178.62.82.89:51448
+
+            println!("handshake with {}", peer);
+
         }
         _ => {
             println!("unknown command: {}", args[1])
@@ -82,7 +93,6 @@ fn calc_info_hash(torrent: &Torrent) -> Vec<u8> {
 }
 
 fn get_file_length(torrent: &Torrent) -> usize {
-    
     match torrent.info.keys {
         Single { length } => length,
         Multiple { .. } => 0,

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::string;
-use crate::bencode::Bencode;
+use crate::bencode::bencode::Bencode;
 
 impl TryFrom<Bencode> for serde_json::Value {
     type Error = &'static str;
