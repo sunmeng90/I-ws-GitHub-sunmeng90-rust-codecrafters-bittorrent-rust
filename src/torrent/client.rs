@@ -12,7 +12,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_util::codec::{Decoder, Encoder, Framed};
 
-use crate::torrent::exchange::{BlockReqPayload, ExchangeMsg, MsgType};
+use crate::torrent::exchange::{BlockReqPayload, BlockRespPayload, ExchangeMsg, MsgType};
 use crate::torrent::handeshake::Handshake;
 use crate::torrent::serde::peers::Peer;
 use crate::torrent::torrent::{Keys, PeersResponse, Torrent};
@@ -108,16 +108,16 @@ impl Client {
 
         println!("handshake peer: {:?}", hex::encode(handshake.peer_id));
         let conn = self.peer_conn.as_mut().unwrap();
-        
+
         println!("Wait for BitField msg");
         let msg = ExchangeMsg::read_from(conn).await?;
         anyhow::ensure!(msg.message_id.unwrap() == MsgType::BitField);
-        
+
         println!("Send Interested msg");
         let msg = ExchangeMsg::new(MsgType::Interested, Vec::new());
         let mut peer = Framed::new(conn, MessageCodec);
         peer.send(msg).await.context("send interested message")?;
-        
+
         println!("Wait for Unchoke msg");
         let msg = peer.next().await.context("invalid unchoke msg")?;
         assert_eq!(MsgType::Unchoke, msg.unwrap().message_id.unwrap());
@@ -148,8 +148,8 @@ impl Client {
         // index: piece index
         // begin: offset within the piece
         // length: length of the block
-        
-        let mut piece_buf:Vec<u8> = Vec::with_capacity(req_piece_size);
+
+        let mut piece_buf: Vec<u8> = Vec::with_capacity(req_piece_size);
         // 2.1 calc offset for each block
         let blocks_count = (req_piece_size + BLOCK_MAX - 1) / BLOCK_MAX;
         for b in 0..blocks_count {
@@ -184,13 +184,20 @@ impl Client {
             assert!(!piece.payload.is_empty());
             // println!("block {}, resp payload: {:?}", b, piece.payload.clone());
             println!("Download receive block size: {}", piece.payload.len());
-            // accumulate block resp
-            println!("pre append buf size: {}", &piece_buf.len());
-            piece_buf.append(&mut piece.payload.clone());
+            // payload format: index begin block
+            if let Some(mut resp) = BlockRespPayload::from_bytes(&piece.payload) {
+                // accumulate block resp
+                println!("pre append buf size: {}", &resp.data.len());
+                piece_buf.append(&mut resp.data.to_vec());
+            };
 
         }
         println!("piece len: {}", &piece_buf.len());
-        std::fs::write(format!("piece_0_{}", process::id()), String::from_utf8(piece_buf)?).unwrap();
+        std::fs::write(
+            format!("piece_0_{}", process::id()),
+            String::from_utf8(piece_buf)?,
+        )
+        .unwrap();
 
         // send request
         Ok(())
@@ -266,7 +273,7 @@ impl Decoder for MessageCodec {
         // src.advance(1);
         let data = if src.len() > 5 {
             src[5..len + 4].to_vec()
-        }else{
+        } else {
             Vec::new()
         };
         let actual_len = &data.len();
