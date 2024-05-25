@@ -35,7 +35,59 @@ Note: This section is for stages 2 and beyond.
 1. Commit your changes and run `git push origin master` to submit your solution
    to CodeCrafters. Test output will be streamed to your terminal.
 
+## Tricks
+
+* How to convert multiple types of error in method to a single custom error type
+
+  To handle multiple types of errors from within a Rust method and convert them into a single custom error type, you can
+  use the anyhow crate. This crate allows you to easily define custom error types that can encapsulate multiple
+  underlying
+  errors.
+
+* Simplify error
+    * anyhow: https://antoinerr.github.io/blog-website/2023/01/28/rust-anyhow.html
+    * thiserror
+
+* Wireshark filter to get traffic from specific IP and port
+
+  (ip.src == 165.232.33.77 or ip.src == 178.62.85.20 or ip.src == 178.62.82.89) and (tcp.port == 51467 or tcp.port ==
+  51489 or tcp.port==51448)
+
+* trait extension
+
+  Example: `Sink` and `SinkExt`. So, this `impl` block is implementing the `SinkExt<Item>` trait for any type `T` that implements
+  the Sink<Item> trait.
+
+```rust
+
+impl<T: ?Sized, Item> SinkExt<Item> for T where T: Sink<Item> {
+   
+   fn send(&mut self, item: Item) -> Send<'_, Self, Item>
+    where
+        Self: Unpin,
+    {
+        assert_future::<Result<(), Self::Error>, _>(Send::new(self, item))
+    }
+    
+}
+
+/// An extension trait for `Sink`s that provides a variety of convenient
+/// combinator functions.
+pub trait SinkExt<Item>: Sink<Item> {}
+```
 
 # Help links
 
 https://danielkeep.github.io/itercheat_baked.html
+
+
+
+# debug
+cargo run  download_piece -o test-piece-0 sample.torrent 0
+
+connecting to peer [165.232.33.77:51467, 178.62.85.20:51489, 178.62.82.89:51448]
+
+(ip.src == 165.232.33.77 or ip.src == 178.62.85.20 or ip.src == 178.62.82.89) and (tcp.port == 51467 or tcp.port == 51489 or tcp.port==51448)
+
+
+(ip.src == 165.232.33.77 or ip.src == 178.62.85.20 or ip.src == 178.62.82.89) or (ip.dst == 165.232.33.77 or ip.dst == 178.62.85.20 or ip.dst == 178.62.82.89)

@@ -1,3 +1,12 @@
+use super::torrent::Torrent;
+
+impl From<Vec<u8>> for  Torrent{
+    fn from(value: Vec<u8>) -> Self {
+        serde_bencode::from_bytes::<Torrent>(&value).unwrap()
+    }
+}
+
+
 pub mod bytes_or_string {
     use std::{cmp, fmt};
 

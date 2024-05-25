@@ -1,11 +1,18 @@
+use crate::bencode::bencode::Bencode;
+use crate::bencode::bencode::Bencode::Byte;
 use std::collections::BTreeMap;
 use std::string;
-use crate::bencode::bencode::Bencode;
-use crate::bencode::bencode::Bencode::{Byte};
 
+pub fn decode_str(encoded: &str) -> String {
+    let decoded_val: serde_json::Value = decode(encoded.as_bytes()).0.try_into().unwrap();
+    serde_json::to_string(&decoded_val).unwrap()
+}
 
 fn split_once(content: &[u8], ch: u8) -> Option<(&[u8], &[u8])> {
-    content.iter().position(|u| *u == ch).map(|p| (&content[..p], &content[p+1..]))
+    content
+        .iter()
+        .position(|u| *u == ch)
+        .map(|p| (&content[..p], &content[p + 1..]))
 }
 
 #[allow(dead_code)]
@@ -21,11 +28,12 @@ pub fn decode(encoded_value: &[u8]) -> (Bencode, &[u8]) {
         }
         Some(b'i') => {
             let content = encoded_value.split_at(1).1;
-            if let Some((n, rest)) = split_once(content, b'e')
-                .and_then(|(digits, rest)| {
-                    let n = string::String::from_utf8_lossy(digits).parse::<i64>().ok()?;
-                    Some((n, rest))
-                }) {
+            if let Some((n, rest)) = split_once(content, b'e').and_then(|(digits, rest)| {
+                let n = string::String::from_utf8_lossy(digits)
+                    .parse::<i64>()
+                    .ok()?;
+                Some((n, rest))
+            }) {
                 return (Bencode::Integer(n), rest);
             }
         }
@@ -50,7 +58,7 @@ pub fn decode(encoded_value: &[u8]) -> (Bencode, &[u8]) {
                 let (key, remainder) = decode(rest);
                 let key = match key {
                     Byte(s) => s,
-                    s => panic!("dict key must be string, not {:?}", s)
+                    s => panic!("dict key must be string, not {:?}", s),
                 };
                 let (value, remainder) = decode(remainder);
                 dict.insert(String::from_utf8(key).unwrap(), value);
@@ -60,5 +68,8 @@ pub fn decode(encoded_value: &[u8]) -> (Bencode, &[u8]) {
         }
         _ => {}
     }
-    panic!("Unhandled encoded value: {}", string::String::from_utf8_lossy(encoded_value))
+    panic!(
+        "Unhandled encoded value: {}",
+        string::String::from_utf8_lossy(encoded_value)
+    )
 }
