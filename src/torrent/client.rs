@@ -8,6 +8,7 @@ use futures_util::SinkExt;
 // has to import explicitly
 use futures_util::StreamExt;
 use serde_bencode::from_bytes;
+use sha1::Digest;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_util::codec::{Decoder, Encoder, Framed};
@@ -190,9 +191,15 @@ impl Client {
                 println!("pre append buf size: {}", &resp.data.len());
                 piece_buf.append(&mut resp.data.to_vec());
             };
-
         }
         println!("piece len: {}", &piece_buf.len());
+        // verify hash
+        let mut hasher = sha1::Sha1::new();
+        Digest::update(&mut hasher, &piece_buf);
+        let hash = hasher.finalize();
+
+        anyhow::ensure!(hash.as_slice() == piece_hash);
+
         std::fs::write(
             format!("piece_0_{}", process::id()),
             String::from_utf8(piece_buf)?,

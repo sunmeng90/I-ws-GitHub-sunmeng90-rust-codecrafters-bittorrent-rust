@@ -109,6 +109,18 @@ pub struct BlockRespPayload<T: ?Sized = [u8]> {
 }
 
 impl BlockRespPayload {
+    pub fn index(&self) -> u32 {
+        u32::from_be_bytes(self.begin)
+    }
+
+    pub fn begin(&self) -> u32 {
+        u32::from_be_bytes(self.begin)
+    }
+
+    pub fn block(&self) -> &[u8] {
+        &self.begin 
+    }
+
     const PIECE_LEAD: usize = std::mem::size_of::<BlockRespPayload<()>>();
 
     pub fn from_bytes(data: &[u8]) -> Option<&Self> {
