@@ -1,3 +1,5 @@
+use std::fs::File;
+use std::io::Write;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::process;
 
@@ -207,6 +209,113 @@ impl Client {
         .unwrap();
 
         // send request
+        Ok(())
+    }
+
+    pub async fn download(&mut self, output_file: &str) -> Result<()> {
+        let handshake = self.handshake().await?;
+
+        let conn = self.peer_conn.as_mut().unwrap();
+
+        let msg = ExchangeMsg::read_from(conn).await?;
+        anyhow::ensure!(msg.message_id.unwrap() == MsgType::BitField);
+
+        println!("Send Interested msg");
+        let msg = ExchangeMsg::new(MsgType::Interested, Vec::new());
+        let mut peer = Framed::new(conn, MessageCodec);
+        peer.send(msg).await.context("send interested message")?;
+
+        println!("Wait for Unchoke msg");
+        let msg = peer.next().await.context("invalid unchoke msg")?;
+        assert_eq!(MsgType::Unchoke, msg.unwrap().message_id.unwrap());
+
+        // piece length: number of bytes in each piece, an integer
+        // pieces: concatenated SHA-1 hashes of each piece (20 bytes each), a string
+        // length: The length of the file, in bytes.
+
+        let info = &self.torrent.info;
+
+        let piece_len = info.piece_length;
+
+        let piece_cnt = info.pieces.0.len();
+
+        let total_len = match info.keys {
+            Keys::Single { length } => length,
+            _ => 0,
+        };
+        let mut output: File = File::create(output_file)?;
+        for (piece_idx, el) in info.pieces.0.iter().enumerate() {
+            println!("Download piece at {} , hash: {:?}", piece_idx, el);
+            let req_piece_size = if piece_idx == piece_cnt - 1 {
+                let md = total_len % piece_len;
+                if md == 0 {
+                    piece_len
+                } else {
+                    md
+                }
+            } else {
+                piece_len
+            };
+
+            let mut piece_buf = Vec::with_capacity(req_piece_size);
+
+            let block_cnt = (req_piece_size + BLOCK_MAX - 1) / BLOCK_MAX;
+
+            for b in 0..block_cnt {
+                let block_size = if b == block_cnt - 1 {
+                    let md = req_piece_size % BLOCK_MAX;
+                    if md != 0 {
+                        md
+                    } else {
+                        BLOCK_MAX
+                    }
+                } else {
+                    BLOCK_MAX
+                };
+
+                let mut block_payload = BlockReqPayload::new(
+                    piece_idx as u32,
+                    (b * BLOCK_MAX) as u32,
+                    block_size as u32,
+                );
+
+                let block_payload = Vec::from(block_payload.as_bytes_mut());
+                let block_req = ExchangeMsg::new(MsgType::Request, block_payload);
+                println!("Download block {}/{}", b, block_cnt);
+
+                peer.send(block_req)
+                    .await
+                    .with_context(|| format!("send request for block {b}"))?;
+
+                let piece = peer
+                    .next()
+                    .await
+                    .expect("peer always send a piece")
+                    .with_context(|| "peer message is invalid")?;
+
+                assert_eq!(piece.message_id, Some(MsgType::Piece));
+                assert!(!piece.payload.is_empty());
+
+                println!("Download receive block size: {}", piece.payload.len());
+                // payload format: index begin block
+                if let Some(mut resp) = BlockRespPayload::from_bytes(&piece.payload) {
+                    // accumulate block resp
+                    println!("pre append buf size: {}", &resp.data.len());
+                    piece_buf.append(&mut resp.data.to_vec());
+                };
+            }
+
+            println!("Download Piece len: {}", &piece_buf.len());
+            // verify hash
+            let mut hasher = sha1::Sha1::new();
+            Digest::update(&mut hasher, &piece_buf);
+            let hash = hasher.finalize();
+
+            anyhow::ensure!(hash.as_slice() == el);
+
+            output.write(&piece_buf).unwrap();
+        }
+
         Ok(())
     }
 }

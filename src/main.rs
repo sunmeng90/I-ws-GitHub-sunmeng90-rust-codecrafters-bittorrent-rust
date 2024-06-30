@@ -55,6 +55,12 @@ async fn main() -> anyhow::Result<()> {
             let piece: usize = args[5].parse()?;
             Client::new(torrent).download_pieces(piece).await?
         }
+        "download" => {
+            // ./your_bittorrent.sh download -o /tmp/test.txt sample.torrent
+            println!("=============={:?}",args);
+            let torrent = Torrent::from_file(&args[4]);
+            Client::new(torrent).download(&args[3]).await?
+        }
         _ => {
             println!("unknown command: {}", args[1]);
         }
